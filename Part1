@@ -1,0 +1,131 @@
+% MATLAB GUI for Diffraction Pattern Simulation
+function diffraction_simulation()
+    % Create the main figure
+    fig = figure('Position', [300, 200, 700, 400], 'Name', 'Diffraction Simulation', 'NumberTitle', 'off');
+    
+    % Add a dropdown menu for aperture selection
+    uicontrol('Style', 'text', 'Position', [50, 350, 100, 20], 'String', 'Choose Shape:', 'FontSize', 10);
+    dropdown = uicontrol('Style', 'popupmenu', ...
+                         'Position', [150, 350, 150, 20], ...
+                         'String', {'Single Slit', 'Square Aperture', 'Circular Aperture', 'Triangular Aperture', 'Grating'}, ...
+                         'FontSize', 10, ...
+                         'Callback', @updateNSlider);
+    
+    % Add a slider for N (number of slits for grating)
+    nLabel = uicontrol('Style', 'text', ...
+                       'Position', [320, 350, 100, 20], ...
+                       'String', 'N (Grating):', ...
+                       'FontSize', 10, ...
+                       'Visible', 'off'); 
+    nSlider = uicontrol('Style', 'slider', ...
+                        'Position', [420, 350, 150, 20], ...
+                        'Min', 10, 'Max', 50, 'Value', 10, ...
+                        'SliderStep', [5/40, 5/10], ... % קפיצות של 5
+                        'Visible', 'off'); 
+    nValueLabel = uicontrol('Style', 'text', ...
+                            'Position', [580, 350, 50, 20], ...
+                            'String', '10', ...
+                            'FontSize', 10, ...
+                            'Visible', 'off'); 
+                 
+    % Add a button to run the simulation
+    uicontrol('Style', 'pushbutton', ...
+              'Position', [550, 310, 100, 30], ...
+              'String', 'Run Simulation', ...
+              'FontSize', 10, ...
+              'Callback', @run_simulation);
+    
+    % Axes for displaying results
+    aperture_axes = axes('Position', [0.1, 0.1, 0.35, 0.5]);
+    pattern_axes = axes('Position', [0.55, 0.1, 0.35, 0.5]);
+    
+    % Callback function to update visibility of N slider
+    function updateNSlider(~, ~)
+        selected = dropdown.Value;
+        if selected == 5 % If "Grating" is selected
+            set(nLabel, 'Visible', 'on');
+            set(nSlider, 'Visible', 'on');
+            set(nValueLabel, 'Visible', 'on');
+        else
+            set(nLabel, 'Visible', 'off');
+            set(nSlider, 'Visible', 'off');
+            set(nValueLabel, 'Visible', 'off');
+        end
+    end
+
+    % Callback function for the slider to update the displayed value
+    function updateNValue(~, ~)
+        currentN = round(nSlider.Value / 5) * 5; % Snap to nearest multiple of 5
+        set(nValueLabel, 'String', num2str(currentN));
+        nSlider.Value = currentN; % Update slider value to match displayed value
+    end
+
+    % Link slider movement to value display
+    nSlider.Callback = @updateNValue;
+
+    % Callback function for the button
+    function run_simulation(~, ~)
+        % Get the selected aperture
+        selected = dropdown.Value;
+        
+        % Get the value of N for grating
+        if selected == 5
+            N = round(nSlider.Value / 5) * 5;
+        else
+            N = 0; 
+        end
+        
+        % Define grid size and spatial resolution
+        grid_size = 3000; % Resolution of the grid
+        L = 2; 
+        x = linspace(-L/2, L/2, grid_size);
+        y = linspace(-L/2, L/2, grid_size);
+        [X, Y] = meshgrid(x, y);
+        
+        % Define apertures
+        switch selected
+            case 1  % Single Slit
+                aperture = double(abs(X) < 0.05);
+            case 2  % Square Aperture
+                aperture = double(abs(X) <= 0.05 & abs(Y) <= 0.05);
+            case 3  % Circular Aperture
+                aperture = double(X.^2 + Y.^2 <= 0.05^2);
+            case 4  % Triangular Aperture
+                % Define a triangle with vertices (-0.05, 0), (0.05, 0), and (0, 0.05)
+                aperture = double((Y >= 0) & (Y <= 0.05 - abs(X)));
+            case 5  % Grating
+                slit_width = 0.01; 
+                d = 0.043; 
+                aperture = zeros(size(X));
+                for n = -floor(N/2):floor(N/2)
+                    aperture = aperture + double(abs(X - n*d) < slit_width/2);
+                end
+        end
+        
+        % Compute Fourier transform of the aperture
+        fft_pattern = fftshift(fft2(aperture));
+        intensity = abs(fft_pattern).^2;
+        
+        % Normalize intensity
+        intensity = intensity / max(intensity(:));
+        
+        % Display aperture
+        axes(aperture_axes);
+        imagesc(x, y, aperture);
+        axis image;
+        title('Aperture', 'FontSize', 12);
+        xlabel('x (arbitrary units)');
+        ylabel('y (arbitrary units)');        
+        
+        % Display diffraction pattern
+        axes(pattern_axes);
+        imagesc(x, y, log(1 + intensity));
+        % colormap hot;
+        axis image;
+        title('Diffraction Pattern', 'FontSize', 12);
+        xlabel('x (arbitrary units)');
+        ylabel('y (arbitrary units)');
+        axis([-0.1 0.1 -0.1 0.1]); % Adjust view for detailed patterns
+        colorbar; % Add a colorbar for intensity visualization
+    end
+end
