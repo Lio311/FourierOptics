@@ -1,0 +1,88 @@
+% MATLAB Code for Solving Part B
+
+% Parameters
+L = 100;                   % Length of the spatial domain (micrometers)
+N = 1024;                  % Number of samples
+dx = L / N;                % Sampling interval (micrometers)
+x = (-L/2:dx:L/2-dx);      % Spatial domain
+
+% Simulation of g_t(x) (Grating)
+period = 5;                % Grating period (micrometers)
+slit_width = 2.5;          % Slit width (micrometers)
+duty_cycle = (slit_width / period) * 100; % Duty cycle calculation
+g_t = square(2 * pi * x / period, duty_cycle);  % Rectangular grating
+
+% Fourier Transform of g_t(x)
+k = (-N/2:N/2-1) / L;       % Spatial frequency domain (1/micrometers)
+G_t = fftshift(fft(ifftshift(g_t))) * dx;  % Fourier Transform
+
+% Plot g_t(x) and its Fourier Transform
+figure;
+subplot(2,1,1);
+plot(x, g_t);
+title('Grating g_t(x)');
+xlabel('x (\mum)'); ylabel('Amplitude');
+
+subplot(2,1,2);
+plot(k, abs(G_t));
+title('Fourier Transform |G_t(k)|');
+xlabel('Spatial Frequency (1/\mum)'); ylabel('Magnitude');
+
+% Define g_m(x) (Filter in Fourier Plane)
+filter_width = 0.2;        % Width of each square filter (cm)
+filter_spacing = 1;        % Spacing between filters (cm)
+filter_indices = abs(k) < (filter_width / 2) / 0.01; % Convert cm to micrometers
+g_m = double(filter_indices); % Binary filter in Fourier domain
+
+% Apply g_m as a filter
+G_output = G_t .* g_m;     % Apply filter in Fourier domain
+g_output = ifftshift(ifft(ifftshift(G_output))) / dx; % Inverse Fourier Transform
+
+% Plot the filtered intensity
+figure;
+subplot(2,1,1);
+plot(k, abs(G_output));
+title('Filtered Fourier Transform |G_{output}(k)|');
+xlabel('Spatial Frequency (1/\mum)'); ylabel('Magnitude');
+
+subplot(2,1,2);
+plot(x, abs(g_output).^2);
+title('Output Intensity |g_{output}(x)|^2');
+xlabel('x (\mum)'); ylabel('Intensity');
+
+% Complex filter g_m(x) with amplitude and phase
+phi = pi/4;                % Phase shift for the right square
+amplitude = 2;             % Amplitude scaling for the right square
+complex_filter = g_m + (filter_indices .* exp(1i * phi) * amplitude); % Modify filter
+G_output_complex = G_t .* complex_filter; % Apply complex filter
+g_output_complex = ifftshift(ifft(ifftshift(G_output_complex))) / dx;
+
+% Plot the complex filtered intensity
+figure;
+subplot(2,1,1);
+plot(k, abs(G_output_complex));
+title('Complex Filtered Fourier Transform |G_{output,complex}(k)|');
+xlabel('Spatial Frequency (1/\mum)'); ylabel('Magnitude');
+
+subplot(2,1,2);
+plot(x, abs(g_output_complex).^2);
+title('Complex Output Intensity |g_{output,complex}(x)|^2');
+xlabel('x (\mum)'); ylabel('Intensity');
+
+% Design a scaling filter for specific spatial frequencies
+scaling_factor = 10;        % Amplify certain frequencies
+g_m_scaled = g_m * scaling_factor; % Amplify filter
+G_output_scaled = G_t .* g_m_scaled;
+g_output_scaled = ifftshift(ifft(ifftshift(G_output_scaled))) / dx;
+
+% Plot the scaled intensity
+figure;
+subplot(2,1,1);
+plot(k, abs(G_output_scaled));
+title('Scaled Fourier Transform |G_{output,scaled}(k)|');
+xlabel('Spatial Frequency (1/\mum)'); ylabel('Magnitude');
+
+subplot(2,1,2);
+plot(x, abs(g_output_scaled).^2);
+title('Scaled Output Intensity |g_{output,scaled}(x)|^2');
+xlabel('x (\mum)'); ylabel('Intensity');
