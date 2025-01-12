@@ -1,0 +1,107 @@
+% Parameters for infinite aperture approximation
+Lx = 50; % Total width in x (cm)
+Ly = 50; % Total width in y (cm)
+N = 2048; % Number of points for sampling in each dimension (high resolution)
+dx = Lx / N; % Spatial resolution
+dy = Ly / N;
+
+% Spatial axes
+[x, y] = meshgrid(linspace(-Lx/2, Lx/2, N), linspace(-Ly/2, Ly/2, N));
+
+% Filter definition (g_m(x, y))
+amp_left = 1; % Amplitude of the left square
+amp_right = 1; % Amplitude of the right square
+phi = pi / 4; % Phase shift of the right square
+
+% Initialize filter
+g_m = zeros(N, N);
+
+% Define left square (centered at x = -0.5 cm)
+center_left = -0.5;
+g_m(abs(x - center_left) <= 0.1 & abs(y) <= 0.1) = amp_left;
+
+% Define right square (centered at x = 0.5 cm)
+center_right = 0.5;
+g_m(abs(x - center_right) <= 0.1 & abs(y) <= 0.1) = amp_right * exp(1j * phi);
+
+% Fourier Transform (2D)
+G_m = fftshift(fft2(g_m)); % 2D Fourier transform and shift
+frequencies_x = linspace(-1/(2*dx), 1/(2*dx), N); % Frequency axis (x)
+frequencies_y = linspace(-1/(2*dy), 1/(2*dy), N);
+
+% Compute magnitude, phase, and intensity
+magnitude = abs(G_m);
+phase = angle(G_m);
+intensity = magnitude.^2;
+
+% Plot results
+figure;
+
+% Plot g_m(x, y)
+subplot(2,2,1);
+imagesc(x(1,:), y(:,1), abs(g_m));
+title('Filter g_m(x, y) (Infinite Aperture)', 'FontSize', 12);
+xlabel('Position x (cm)', 'FontSize', 10);
+ylabel('Position y (cm)', 'FontSize', 10);
+colorbar;
+axis image;
+xlim([-1 1]);
+ylim([-1 1]);
+
+% Add annotations for distance and size
+hold on;
+
+% Line and triangle markers for distance between centers
+arrow_y = 0.12; % Vertical position for distance arrow
+line([center_left, center_right], [arrow_y, arrow_y], 'Color', 'k', 'LineWidth', 1.2); % Main line
+fill([center_left center_left+0.05 center_left+0.05], ...
+    [arrow_y arrow_y+0.02 arrow_y-0.02], 'k', 'EdgeColor', 'none'); % Left triangle
+fill([center_right center_right-0.05 center_right-0.05], ...
+    [arrow_y arrow_y+0.02 arrow_y-0.02], 'k', 'EdgeColor', 'none'); % Right triangle
+text(0, arrow_y + 0.03, '1 cm', 'HorizontalAlignment', 'center', 'FontSize', 10, 'FontWeight', 'bold');
+
+% Line and triangle markers for square size (left square)
+arrow_square_y = -0.12; % Vertical position for size arrows
+line([center_left - 0.1, center_left + 0.1], [arrow_square_y, arrow_square_y], 'Color', 'k', 'LineWidth', 1.2); % Main line
+fill([center_left-0.1 center_left-0.1+0.03 center_left-0.1+0.03], ...
+    [arrow_square_y arrow_square_y+0.02 arrow_square_y-0.02], 'k', 'EdgeColor', 'none'); % Left triangle
+fill([center_left+0.1 center_left+0.1-0.03 center_left+0.1-0.03], ...
+    [arrow_square_y arrow_square_y+0.02 arrow_square_y-0.02], 'k', 'EdgeColor', 'none'); % Right triangle
+text(center_left, arrow_square_y - 0.03, '0.2 cm', 'HorizontalAlignment', 'center', 'FontSize', 9, 'FontWeight', 'bold');
+
+% Line and triangle markers for square size (right square)
+line([center_right - 0.1, center_right + 0.1], [arrow_square_y, arrow_square_y], 'Color', 'k', 'LineWidth', 1.2); % Main line
+fill([center_right-0.1 center_right-0.1+0.03 center_right-0.1+0.03], ...
+    [arrow_square_y arrow_square_y+0.02 arrow_square_y-0.02], 'k', 'EdgeColor', 'none'); % Left triangle
+fill([center_right+0.1 center_right+0.1-0.03 center_right+0.1-0.03], ...
+    [arrow_square_y arrow_square_y+0.02 arrow_square_y-0.02], 'k', 'EdgeColor', 'none'); % Right triangle
+text(center_right, arrow_square_y - 0.03, '0.2 cm', 'HorizontalAlignment', 'center', 'FontSize', 9, 'FontWeight', 'bold');
+
+hold off;
+
+% Plot magnitude of Fourier Transform
+subplot(2,2,2);
+imagesc(frequencies_x, frequencies_y, magnitude);
+title('Magnitude of G_m(f_x, f_y)', 'FontSize', 12);
+xlabel('Frequency f_x (1/cm)', 'FontSize', 10);
+ylabel('Frequency f_y (1/cm)', 'FontSize', 10);
+colorbar;
+axis image;
+
+% Plot phase of Fourier Transform
+subplot(2,2,3);
+imagesc(frequencies_x, frequencies_y, phase);
+title('Phase of G_m(f_x, f_y)', 'FontSize', 12);
+xlabel('Frequency f_x (1/cm)', 'FontSize', 10);
+ylabel('Frequency f_y (1/cm)', 'FontSize', 10);
+colorbar;
+axis image;
+
+% Plot intensity of Fourier Transform
+subplot(2,2,4);
+imagesc(frequencies_x, frequencies_y, intensity);
+title('Intensity |G_m(f_x, f_y)|^2', 'FontSize', 12);
+xlabel('Frequency f_x (1/cm)', 'FontSize', 10);
+ylabel('Frequency f_y (1/cm)', 'FontSize', 10);
+colorbar;
+axis image;
