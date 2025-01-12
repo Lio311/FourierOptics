@@ -1,0 +1,177 @@
+clc; clear; close all;
+
+% Parameters
+lambda = 500e-9; % Wavelength (500 nm)
+k = 2 * pi / lambda; % Wave number
+f = 0.1; % Focal length of lenses (in meters)
+
+% Define spatial grid
+L = 0.02; % Grid size (20 mm)
+N = 2048; % Number of grid points
+x = linspace(-L/2, L/2, N);
+dx = x(2) - x(1);
+[X, Y] = meshgrid(x, x);
+
+%% Part B.1: Simulate g_t(x)
+% Define input slide g_t(x) as a diagonal grating pattern
+g_t = sin(2 * pi * 50 * X + 2 * pi * 50 * Y) > 0; % Binary grating
+
+% Compute Fourier Transform of g_t
+G_t = fftshift(fft2(g_t));
+intensity_G_t = abs(G_t).^2;
+
+% Plot g_t and its Fourier Transform
+figure;
+subplot(1, 2, 1);
+imagesc(x, x, g_t);
+colormap gray;
+axis image;
+title('Input Slide g_t(x)');
+xlabel('x (m)');
+ylabel('y (m)');
+
+subplot(1, 2, 2);
+imagesc(x, x, log(1 + intensity_G_t));
+colormap jet;
+axis image;
+title('Fourier Transform of g_t(x)');
+xlabel('f_x (Hz)');
+ylabel('f_y (Hz)');
+
+%% Part B.2: Filter g_m(x) with amplitude and phase (Infinite Aperture)
+% Parameters for infinite aperture approximation
+Lx = 50; % Total width in x (cm)
+Ly = 50; % Total width in y (cm)
+dx_m = Lx / N; % Spatial resolution
+dy_m = Ly / N;
+
+% Spatial axes
+[x_m, y_m] = meshgrid(linspace(-Lx/2, Lx/2, N), linspace(-Ly/2, Ly/2, N));
+
+% Filter definition (g_m(x, y))
+amp_left = 1; % Amplitude of the left square
+amp_right = 1; % Amplitude of the right square
+phi = pi / 4; % Phase shift of the right square
+
+% Initialize filter
+g_m = zeros(N, N);
+
+% Define left square (centered at x = -0.5 cm)
+center_left = -0.5;
+g_m(abs(x_m - center_left) <= 0.1 & abs(y_m) <= 0.1) = amp_left;
+
+% Define right square (centered at x = 0.5 cm)
+center_right = 0.5;
+g_m(abs(x_m - center_right) <= 0.1 & abs(y_m) <= 0.1) = amp_right * exp(1j * phi);
+
+% Fourier Transform (2D)
+G_m = fftshift(fft2(g_m)); % 2D Fourier transform and shift
+frequencies_x_m = linspace(-1/(2*dx_m), 1/(2*dx_m), N); % Frequency axis (x)
+frequencies_y_m = linspace(-1/(2*dy_m), 1/(2*dy_m), N);
+
+% Compute magnitude, phase, and intensity
+magnitude = abs(G_m);
+phase = angle(G_m);
+intensity = magnitude.^2;
+
+% Plot results
+figure;
+
+% Plot g_m(x, y)
+subplot(2,2,1);
+imagesc(x_m(1,:), y_m(:,1), abs(g_m));
+title('Filter g_m(x, y) (Infinite Aperture)', 'FontSize', 12);
+xlabel('Position x (cm)', 'FontSize', 10);
+ylabel('Position y (cm)', 'FontSize', 10);
+colorbar;
+axis image;
+xlim([-1 1]);
+ylim([-1 1]);
+
+% Add annotations for size and distance
+hold on;
+% Arrow for horizontal size (0.2 cm) - above the left square
+arrow_y_left = 0.12; % Vertical position for the left square arrow
+line([-0.6, -0.4], [arrow_y_left, arrow_y_left], 'Color', 'k', 'LineWidth', 1.2);
+fill([-0.6 -0.55 -0.55], [arrow_y_left arrow_y_left+0.02 arrow_y_left-0.02], 'k', 'EdgeColor', 'none'); % Left triangle
+fill([-0.4 -0.45 -0.45], [arrow_y_left arrow_y_left+0.02 arrow_y_left-0.02], 'k', 'EdgeColor', 'none'); % Right triangle
+text(-0.5, arrow_y_left + 0.03, '0.2 cm', 'HorizontalAlignment', 'center', 'FontSize', 10, 'FontWeight', 'bold');
+
+% Arrow for horizontal size (0.2 cm) - above the right square
+arrow_y_right = 0.12; % Vertical position for the right square arrow
+line([0.4, 0.6], [arrow_y_right, arrow_y_right], 'Color', 'k', 'LineWidth', 1.2);
+fill([0.4 0.45 0.45], [arrow_y_right arrow_y_right+0.02 arrow_y_right-0.02], 'k', 'EdgeColor', 'none'); % Left triangle
+fill([0.6 0.55 0.55], [arrow_y_right arrow_y_right+0.02 arrow_y_right-0.02], 'k', 'EdgeColor', 'none'); % Right triangle
+text(0.5, arrow_y_right + 0.03, '0.2 cm', 'HorizontalAlignment', 'center', 'FontSize', 10, 'FontWeight', 'bold');
+
+
+% Arrow for distance between squares (1 cm)
+arrow_x = 0.1-0.2; % הרמת החץ ב-0.2 מעל המיקום המקורי
+line([center_left, center_right], [arrow_x, arrow_x], 'Color', 'k', 'LineWidth', 1.2);
+fill([center_left center_left+0.05 center_left+0.05], ...
+    [arrow_x arrow_x+0.02 arrow_x-0.02], 'k', 'EdgeColor', 'none'); % Left triangle
+fill([center_right center_right-0.05 center_right-0.05], ...
+    [arrow_x arrow_x+0.02 arrow_x-0.02], 'k', 'EdgeColor', 'none'); % Right triangle
+text(0, arrow_x + 0.03, '1 cm', 'HorizontalAlignment', 'center', 'FontSize', 10, 'FontWeight', 'bold');
+hold off;
+
+
+% Plot magnitude of Fourier Transform
+subplot(2,2,2);
+imagesc(frequencies_x_m, frequencies_y_m, magnitude);
+title('Magnitude of G_m(f_x, f_y)', 'FontSize', 12);
+xlabel('Frequency f_x (1/cm)', 'FontSize', 10);
+ylabel('Frequency f_y (1/cm)', 'FontSize', 10);
+colorbar;
+axis image;
+
+% Plot phase of Fourier Transform
+subplot(2,2,3);
+imagesc(frequencies_x_m, frequencies_y_m, phase);
+title('Phase of G_m(f_x, f_y)', 'FontSize', 12);
+xlabel('Frequency f_x (1/cm)', 'FontSize', 10);
+ylabel('Frequency f_y (1/cm)', 'FontSize', 10);
+colorbar;
+axis image;
+
+% Plot intensity of Fourier Transform
+subplot(2,2,4);
+imagesc(frequencies_x_m, frequencies_y_m, intensity);
+title('Intensity |G_m(f_x, f_y)|^2', 'FontSize', 12);
+xlabel('Frequency f_x (1/cm)', 'FontSize', 10);
+ylabel('Frequency f_y (1/cm)', 'FontSize', 10);
+colorbar;
+axis image;
+
+%% Part B.3: Output after passing through the filter
+output = ifft2(fft2(g_t) .* fft2(g_m));
+intensity_output = abs(output).^2;
+
+% Plot the output intensity
+figure;
+% Use a logarithmic scale for better visualization of intensity variations
+imagesc(x, x, log(1 + intensity_output));
+colormap jet; 
+axis image; 
+title('Output Intensity after Filtering');
+xlabel('x (m)'); 
+ylabel('y (m)'); 
+
+
+%% Part B.4: Design a scaling filter
+% Create a scaling filter in Fourier domain
+scaling_filter = zeros(N, N);
+scaling_filter(N/2-50:N/2+50, N/2-50:N/2+50) = 2; % Amplify specific spatial frequencies
+
+% Apply scaling filter to Fourier Transform of g_t
+scaled_output = ifft2(G_t .* scaling_filter);
+scaled_intensity = abs(scaled_output).^2;
+
+% Plot the scaled output intensity
+figure;
+imagesc(x, x, scaled_intensity);
+colormap jet;
+axis image;
+title('Scaled Output Intensity');
+xlabel('x (m)');
+ylabel('y (m)');
