@@ -1,0 +1,168 @@
+function diffraction_simulation()
+    % Create the main figure
+    fig = figure('Position', [300, 200, 700, 400], 'Name', 'Diffraction Simulation', 'NumberTitle', 'off');
+    
+    % Add a dropdown menu for aperture selection
+    uicontrol('Style', 'text', 'Position', [50, 350, 100, 20], 'String', 'Choose Shape:', 'FontSize', 10);
+    dropdown = uicontrol('Style', 'popupmenu', ...
+                         'Position', [150, 350, 150, 20], ...
+                         'String', {'Single Slit', 'Square Aperture', 'Circular Aperture', 'Triangular Aperture', 'Inverted Triangle', 'Grating'}, ...
+                         'FontSize', 10, ...
+                         'Callback', @updateNSlider);
+    
+    % Add shared slider for size (radius/width)
+    sharedLabel = uicontrol('Style', 'text', ...
+                            'Position', [50, 310, 100, 20], ...
+                            'String', 'Size:', ...
+                            'FontSize', 10);
+    sharedSlider = uicontrol('Style', 'slider', ...
+                             'Position', [150, 310, 150, 20], ...
+                             'Min', 0, 'Max', 1, 'Value', 0.01, ...
+                             'SliderStep', [0.01, 0.1]);
+    sharedValueLabel = uicontrol('Style', 'text', ...
+                                 'Position', [310, 310, 50, 20], ...
+                                 'String', '0.01', ...
+                                 'FontSize', 10);
+
+    % Add slider for D (spacing between slits)
+    dLabel = uicontrol('Style', 'text', ...
+                       'Position', [50, 270, 100, 20], ...
+                       'String', 'D (Spacing):', ...
+                       'FontSize', 10, ...
+                       'Visible', 'off');
+    dSlider = uicontrol('Style', 'slider', ...
+                        'Position', [150, 270, 150, 20], ...
+                        'Min', 0, 'Max', 0.1, 'Value', 0.043, ...
+                        'SliderStep', [0.001, 0.01], ...
+                        'Visible', 'off');
+    dValueLabel = uicontrol('Style', 'text', ...
+                            'Position', [310, 270, 50, 20], ...
+                            'String', '0.043', ...
+                            'FontSize', 10, ...
+                            'Visible', 'off');
+
+    % Callback for slider value updates
+    sharedSlider.Callback = @updateSharedValue;
+    dSlider.Callback = @updateDValue;
+
+    % Callback to update shared slider value display
+    function updateSharedValue(~, ~)
+        currentValue = sharedSlider.Value;
+        set(sharedValueLabel, 'String', num2str(currentValue, '%.2f'));
+    end
+
+    % Callback to update D slider value display
+    function updateDValue(~, ~)
+        currentValue = dSlider.Value;
+        set(dValueLabel, 'String', num2str(currentValue, '%.3f'));
+    end
+
+    % Callback to update slider visibility based on selection
+    function updateNSlider(~, ~)
+        selected = dropdown.Value;
+        if selected == 6 % Grating
+            set(sharedLabel, 'String', 'N (Grating):');
+            set(sharedSlider, 'Min', 10, 'Max', 50, 'Value', 10);
+            set(sharedSlider, 'SliderStep', [5/40, 5/10]);
+            set(sharedValueLabel, 'String', '10');
+            
+            % Show D slider
+            set(dLabel, 'Visible', 'on');
+            set(dSlider, 'Visible', 'on');
+            set(dValueLabel, 'Visible', 'on');
+        else
+            set(sharedLabel, 'String', 'Size:');
+            set(sharedSlider, 'Min', 0, 'Max', 1, 'Value', 0.1);
+            set(sharedSlider, 'SliderStep', [0.01, 0.1]);
+            set(sharedValueLabel, 'String', '0.05');
+            
+            % Hide D slider
+            set(dLabel, 'Visible', 'off');
+            set(dSlider, 'Visible', 'off');
+            set(dValueLabel, 'Visible', 'off');
+        end
+    end
+
+    % Add a button to run the simulation
+    uicontrol('Style', 'pushbutton', ...
+              'Position', [550, 310, 100, 30], ...
+              'String', 'Run Simulation', ...
+              'FontSize', 10, ...
+              'Callback', @run_simulation);
+    
+    % Axes for displaying results
+    aperture_axes = axes('Position', [0.1, 0.1, 0.35, 0.5]);
+    pattern_axes = axes('Position', [0.55, 0.1, 0.35, 0.5]);
+
+    % Callback for running the simulation
+    function run_simulation(~, ~)
+        selected = dropdown.Value;
+        sharedValue = sharedSlider.Value;
+        dValue = dSlider.Value;
+
+        % Define grid size and spatial resolution
+        grid_size = 3000;
+        L = 2;
+        x = linspace(-L/2, L/2, grid_size);
+        y = linspace(-L/2, L/2, grid_size);
+        [X, Y] = meshgrid(x, y);
+
+        % Define apertures
+        switch selected
+            case 1 % Single Slit
+                aperture = double(abs(X) < sharedValue);
+            case 2 % Square Aperture
+                aperture = double(abs(X) <= sharedValue / 2 & abs(Y) <= sharedValue / 2);
+            case 3 % Circular Aperture
+                aperture = double(X.^2 + Y.^2 <= sharedValue^2);
+            case 4 % Triangular Aperture
+                half_base = sharedValue / 2;
+                height = sharedValue;
+                Y_shift = height / 3; % הזזה למעלה
+                aperture = double((Y + Y_shift >= 0) & abs(X) <= half_base & (Y + Y_shift) <= height - (height / half_base) * abs(X));
+            case 5 % Inverted Triangle
+                half_base = sharedValue / 2;
+                height = sharedValue;
+                Y_shift = height / 3; % הזזה למטה
+                aperture = double((Y - Y_shift <= 0) & abs(X) <= half_base & (Y - Y_shift) >= -height + (height / half_base) * abs(X));
+            case 6 % Grating
+                slit_width = 0.01; % רוחב החריץ
+                theta = pi/6; % זווית האלכסון (לדוגמה, 30 מעלות)
+                N = round(sharedValue / 5) * 5; % הגדרת מספר החריצים
+                
+                % יצירת רשת אלכסונית
+                X_rot = X * cos(theta) - Y * sin(theta); % רוטציה של הקואורדינטות
+                aperture = zeros(size(X));
+                
+                % הוספת חריצים לסריג
+                for n = -floor(N/2):floor(N/2)
+                    aperture = aperture + double(abs(X_rot - n * dValue) < slit_width / 2); % שימוש ב-dValue
+                end
+        end
+
+        % Compute Fourier transform of the aperture
+        fft_pattern = fftshift(fft2(aperture));
+        intensity = abs(fft_pattern).^2;
+
+        % Normalize intensity
+        intensity = intensity / max(intensity(:));
+
+        % Display aperture
+        axes(aperture_axes);
+        imagesc(x, y, aperture);
+        axis image;
+        title('Aperture', 'FontSize', 12);
+        xlabel('x (arbitrary units)');
+        ylabel('y (arbitrary units)');
+
+        % Display diffraction pattern
+        axes(pattern_axes);
+        imagesc(x, y, log(1 + intensity));
+        axis image;
+        title('Diffraction Pattern', 'FontSize', 12);
+        xlabel('x (arbitrary units)');
+        ylabel('y (arbitrary units)');
+        axis([-0.1 0.1 -0.1 0.1]);
+        colorbar;
+    end
+end
